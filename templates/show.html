@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset="UTF-8">
+<title>围棋</title>
+
+
+<style>
+
+body{
+
+    text-align:center;
+    font-family:Arial;
+
+}
+
+
+canvas{
+
+    border:2px solid black;
+
+}
+
+</style>
+
+
+</head>
+
+
+
+<body>
+
+
+<h1>Go</h1>
+
+
+<canvas
+    id="board"
+    width="600"
+    height="600">
+</canvas>
+
+
+
+<script>
+
+
+const canvas =
+document.getElementById("board");
+
+
+const ctx =
+canvas.getContext("2d");
+
+
+
+const size = 19;
+
+const gap = 30;
+
+
+
+// =================
+// 画棋盘
+// =================
+
+function drawGrid(){
+
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    ctx.lineWidth = 1;
+
+
+    for(let i=0;i<size;i++){
+
+
+        //竖线
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            30+i*gap,
+            30
+        );
+
+        ctx.lineTo(
+            30+i*gap,
+            570
+        );
+
+        ctx.stroke();
+
+
+
+        //横线
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            30,
+            30+i*gap
+        );
+        ctx.lineTo(
+            570,
+            30+i*gap
+        );
+        ctx.stroke();
+
+
+    }
+
+}
+
+
+
+// =================
+// 画棋子
+// =================
+
+function drawStone(x,y,color){
+
+
+    ctx.beginPath();
+
+
+    ctx.arc(
+
+        30+x*gap,
+        30+y*gap,
+        13,
+        0,
+        Math.PI*2
+
+    );
+
+
+
+    ctx.fillStyle=color;
+
+    ctx.fill();
+
+
+
+    ctx.strokeStyle="black";
+
+    ctx.stroke();
+
+
+}
+
+
+
+// =================
+// 更新棋盘
+// 接收Python board
+// =================
+
+function updateBoard(board){
+
+
+    drawGrid();
+
+
+
+    for(let x=0;x<19;x++){
+
+
+        for(let y=0;y<19;y++){
+
+
+
+            let value =
+            board[x+1][y+1];
+
+
+
+            if(value===1){
+
+                drawStone(
+                    x,
+                    y,
+                    "black"
+                );
+
+            }
+
+
+
+            if(value===-1){
+
+                drawStone(
+                    x,
+                    y,
+                    "white"
+                );
+
+            }
+
+
+        }
+
+    }
+
+
+}
+
+
+
+
+// =================
+// 点击棋盘
+// =================
+
+canvas.onclick=function(event){
+
+
+
+    let rect =
+    canvas.getBoundingClientRect();
+
+
+
+    let x =
+    Math.round(
+        (event.clientX-rect.left-30)
+        /
+        gap
+    );
+
+
+
+    let y =
+    Math.round(
+        (event.clientY-rect.top-30)
+        /
+        gap
+    );
+
+
+
+    console.log(
+        "点击:",
+        x,
+        y
+    );
+
+
+
+    if(
+        x<0 ||
+        x>=19 ||
+        y<0 ||
+        y>=19
+    ){
+
+        return;
+
+    }
+
+
+
+    //发送给Flask
+
+    fetch("/move",{
+
+
+        method:"POST",
+
+
+        headers:{
+
+            "Content-Type":
+            "application/json"
+
+        },
+
+
+        body:JSON.stringify({
+
+            x:x,
+
+            y:y
+
+        })
+
+
+    })
+
+
+    .then(response=>{
+
+
+        if(!response.ok){
+
+            throw new Error(
+                "服务器错误"
+            );
+
+        }
+
+
+        return response.json();
+
+
+    })
+
+
+    .then(data=>{
+
+
+        console.log(
+            "Python返回:",
+            data
+        );
+
+
+
+        if(data.success){
+
+
+            updateBoard(
+                data.board
+            );
+
+
+        }
+
+        else{
+
+
+            alert(
+                "非法落子"
+            );
+
+
+        }
+
+
+    })
+
+
+    .catch(error=>{
+
+
+        console.log(error);
+
+
+        alert(
+            "无法连接Python服务器"
+        );
+
+
+    });
+
+
+
+};
+
+
+
+
+// 页面打开时画棋盘
+
+drawGrid();
+
+
+
+</script>
+
+
+</body>
+
+</html>
