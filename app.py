@@ -12,7 +12,7 @@ game=GoGame()
 def index():
 
     return render_template(
-        "棋盘展示.html"
+        "show.html"
     )
 
 
