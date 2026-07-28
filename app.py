@@ -14,6 +14,8 @@ def get_game():
     if "id" not in session:
         session["id"] = str(uuid.uuid4())
 
+
+    if session["id"] not in games:
         games[session["id"]] = GoGame()
 
 
