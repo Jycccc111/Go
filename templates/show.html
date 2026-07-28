@@ -67,23 +67,19 @@ const gap = 30;
 
 function drawGrid(){
 
-
     ctx.clearRect(
         0,
         0,
-        canvas.width,
-        canvas.height
+        600,
+        600
     );
 
 
-    ctx.lineWidth = 1;
-
-
+    // 画棋盘线
     for(let i=0;i<size;i++){
 
 
         //竖线
-
         ctx.beginPath();
 
         ctx.moveTo(
@@ -101,25 +97,76 @@ function drawGrid(){
 
 
         //横线
-
         ctx.beginPath();
 
         ctx.moveTo(
             30,
             30+i*gap
         );
+
         ctx.lineTo(
             570,
             30+i*gap
         );
+
         ctx.stroke();
 
+    }
+
+
+
+    // 画星位
+    drawStars();
+
+}
+
+function drawStars(){
+
+    let stars = [
+
+        [3,3],
+        [3,9],
+        [3,15],
+
+        [9,3],
+        [9,9],
+        [9,15],
+
+        [15,3],
+        [15,9],
+        [15,15]
+
+    ];
+
+
+    ctx.fillStyle="black";
+
+
+    for(let i=0;i<stars.length;i++){
+
+        let x = stars[i][0];
+        let y = stars[i][1];
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+
+            30+x*gap,
+            30+y*gap,
+            5,
+            0,
+            Math.PI*2
+
+        );
+
+
+        ctx.fill();
 
     }
 
 }
-
-
 
 // =================
 // 画棋子
