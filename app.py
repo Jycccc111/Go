@@ -1,7 +1,7 @@
 from board import GoGame
 from flask import Flask,render_template,jsonify,request,session
 import uuid
-
+from judger import judgeresult
 
 app = Flask(__name__)
 
@@ -52,6 +52,8 @@ def move():
         "board":game.board.tolist()
 
     })
+
+
 
 if __name__ == "__main__":
     app.run(

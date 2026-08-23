@@ -1,7 +1,11 @@
 import numpy as np
 
+
+
+
+
 def create_a_game():
-    board = np.ones((21, 21), dtype=np.int8)*2
+    board = np.ones((21, 21),dtype=int)*2
     board[1:20,1:20] = 0
     return board
 
@@ -37,7 +41,7 @@ def update_clusters(position,clusters,color):
                 if is_same_cluster and cluster_found:
                     if current_cluster != i:
                         added_index.append(i)
-                        local_clusters[current_cluster].append(clusters[i])
+                        local_clusters[current_cluster].extend(clusters[i])
                         break
                 j += 1
             i += 1
@@ -92,7 +96,7 @@ def eat(board,clusters,color):
             count = 0
             for x, y, color in clusters[i]:
                 board[x, y] = 0
-                print(x,y,"iseated")
+                #print(x,y,"iseated")
                 count += 1
             del clusters[i]
             if count == 1:
@@ -118,7 +122,19 @@ class GoGame:
 
         self.lasteated2=[]
 
-    def move(self,x,y):
+    def add_stone(self, x, y, color):
+
+        self.board[x, y] = color
+
+        self.clusters = update_clusters(
+            [x, y],
+            self.clusters,
+            color
+        )
+
+    def move(self, x, y, color=None):
+
+        temp_clusters = self.clusters.copy()
 
         error1=False
         error2=False
@@ -131,22 +147,20 @@ class GoGame:
         if self.board[x,y]!=0:
             error3=True
 
+        if color is None:
+            if self.count % 2 == 1:
 
-        if self.count%2==1:
+                color = 1
 
-            color=1
+                if self.lasteated1 == position:
+                    error2 = True
 
-            if self.lasteated1==position:
-                error2=True
+            else:
 
-        else:
+                color = -1
 
-            color=-1
-
-            if self.lasteated2==position:
-                error2=True
-
-
+                if self.lasteated2 == position:
+                    error2 = True
 
         if not(error2 or error3):
 

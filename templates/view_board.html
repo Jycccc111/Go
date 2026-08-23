@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset="UTF-8">
+<title>围棋</title>
+
+
+<style>
+
+body{
+
+    text-align:center;
+    font-family:Arial;
+
+}
+
+
+canvas{
+
+    border:2px solid black;
+
+}
+
+</style>
+
+
+</head>
+
+
+
+<body>
+
+
+<h1>Go</h1>
+
+
+<canvas
+    id="board"
+    width="600"
+    height="600">
+</canvas>
+
+<br>
+
+<button onclick="showResult()">
+显示胜负
+</button>
+
+<h2 id="result">
+</h2>
+
+
+<script>
+
+
+const canvas =
+document.getElementById("board");
+
+
+const ctx =
+canvas.getContext("2d");
+
+
+
+const size = 19;
+
+const gap = 30;
+
+
+
+// =================
+// 画棋盘
+// =================
+
+
+function showResult(){
+
+
+fetch("/judge")
+
+.then(response=>response.json())
+
+.then(data=>{
+
+
+    console.log(data);
+
+    document.getElementById("result").innerHTML =
+
+    "黑: "
+    + data.black_score
+    + "目<br>"
+    +
+    "白: "
+    + data.white_score
+    + "目<br>"
+    +
+    data.result;
+
+    // 空点归属
+    for(let p of data.air){
+
+        drawOwner(
+            p.y-1,
+            p.x-1,
+            p.owner,
+            false
+        );
+
+    }
+
+
+    // 死棋标记
+    for(let s of data.stones){
+
+        if(s.dead){
+
+            drawOwner(
+                s.y-1,
+                s.x-1,
+                s.color,
+                true
+            );
+
+        }
+
+    }
+
+
+});
+
+
+}
+function drawGrid(){
+
+    ctx.clearRect(
+        0,
+        0,
+        600,
+        600
+    );
+
+
+    // 画棋盘线
+    for(let i=0;i<size;i++){
+
+
+        //竖线
+        ctx.beginPath();
+
+        ctx.moveTo(
+            30+i*gap,
+            30
+        );
+
+        ctx.lineTo(
+            30+i*gap,
+            570
+        );
+
+        ctx.stroke();
+
+
+
+        //横线
+        ctx.beginPath();
+
+        ctx.moveTo(
+            30,
+            30+i*gap
+        );
+
+        ctx.lineTo(
+            570,
+            30+i*gap
+        );
+
+        ctx.stroke();
+
+    }
+
+
+
+    // 画星位
+    drawStars();
+
+}
+
+function drawStars(){
+
+    let stars = [
+
+        [3,3],
+        [3,9],
+        [3,15],
+
+        [9,3],
+        [9,9],
+        [9,15],
+
+        [15,3],
+        [15,9],
+        [15,15]
+
+    ];
+
+
+    ctx.fillStyle="black";
+
+
+    for(let i=0;i<stars.length;i++){
+
+        let x = stars[i][0];
+        let y = stars[i][1];
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+
+            30+x*gap,
+            30+y*gap,
+            5,
+            0,
+            Math.PI*2
+
+        );
+
+
+        ctx.fill();
+
+    }
+
+}
+
+// =================
+// 画棋子
+// =================
+
+function drawStone(x,y,color,dead=false){
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        30+x*gap,
+        30+y*gap,
+        13,
+        0,
+        Math.PI*2
+    );
+
+
+    ctx.fillStyle=color;
+
+    ctx.fill();
+
+
+    ctx.strokeStyle="black";
+
+    ctx.stroke();
+
+
+}
+
+
+
+// =================
+// 更新棋盘
+// 接收Python board
+// =================
+
+function updateBoard(board){
+
+
+    drawGrid();
+
+
+
+    for(let x=0;x<19;x++){
+
+
+        for(let y=0;y<19;y++){
+
+
+
+            let value =
+            board[x+1][y+1];
+
+
+
+            if(value===1){
+
+                drawStone(
+                    y,
+                    x,
+                    "black"
+                );
+
+            }
+
+
+
+            if(value===-1){
+
+                drawStone(
+                    y,
+                    x,
+                    "white"
+                );
+
+            }
+
+
+        }
+
+    }
+
+
+}
+
+// =================
+// 点击棋盘
+// =================
+
+
+
+
+
+// 页面打开时画棋盘
+
+fetch("/sgf_board")
+
+.then(response=>response.json())
+
+.then(data=>{
+
+
+    console.log(data);
+
+
+    updateBoard(
+        data.board
+    );
+
+
+});
+function drawOwner(x,y,owner,dead=false){
+
+
+    let size=8;
+
+
+
+
+
+    if(owner===1){
+
+        ctx.fillStyle="black";
+
+    }
+
+    else if(owner===-1){
+
+        ctx.fillStyle="white";
+
+        ctx.strokeStyle="black";
+
+    }
+
+    else{
+
+        return;
+
+    }
+
+    if(dead){
+
+    if(owner===-1){
+        // 黑棋死 -> 白色标记
+        ctx.fillStyle="white";
+        ctx.strokeStyle="black";
+    }
+    else if(owner===1){
+        // 白棋死 -> 黑色标记
+        ctx.fillStyle="black";
+    }
+
+
+    ctx.fillRect(
+        30+x*gap-size/2,
+        30+y*gap-size/2,
+        size,
+        size
+    );
+
+
+    ctx.strokeRect(
+        30+x*gap-size/2,
+        30+y*gap-size/2,
+        size,
+        size
+    );
+
+
+    return;
+
+}
+
+    ctx.fillRect(
+
+        30+x*gap-size/2,
+
+        30+y*gap-size/2,
+
+        size,
+
+        size
+
+    );
+
+
+    if(owner===-1){
+
+        ctx.strokeRect(
+
+            30+x*gap-size/2,
+
+            30+y*gap-size/2,
+
+            size,
+
+            size
+
+        );
+
+    }
+
+}
+</script>
+
+
+</body>
+
+</html>
