@@ -2,7 +2,7 @@ from board import GoGame
 from flask import Flask,render_template,jsonify,request,session
 import uuid
 from judger import judgeresult
-
+from AI import predict_move
 app = Flask(__name__)
 
 app.secret_key = "your_secret_key"
@@ -43,13 +43,37 @@ def move():
 
 
     success=game.move(x,y)
+    if not success:
+        return jsonify({
 
+            "success": False,
+
+            "board": game.board.tolist()
+
+        })
+
+    ai_move = predict_move(game)
+
+    if ai_move is not None:
+        ai_x, ai_y = ai_move
+
+        # 你的 GoGame 使用 1~19
+        game.move(
+            ai_x + 1,
+            ai_y + 1
+        )
+
+    # =====================
+    # 返回棋盘
+    # =====================
 
     return jsonify({
 
-        "success":success,
+        "success": True,
 
-        "board":game.board.tolist()
+        "board": game.board.tolist(),
+
+        "ai_move": ai_move
 
     })
 
