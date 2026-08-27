@@ -76,6 +76,11 @@ def move():
         "ai_move": ai_move
 
     })
+    print("Human move:", x, y)
+
+    ai_move = predict_move(game)
+
+    print("AI move:", ai_move)
 
 
 
