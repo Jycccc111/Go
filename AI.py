@@ -34,7 +34,7 @@ def predict_move(game):
 
     with torch.no_grad():
         output = model(state)
-
+    output = output.squeeze(0)
     candidates = []
 
     for x in range(19):
