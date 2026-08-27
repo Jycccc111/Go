@@ -79,7 +79,7 @@ print("模型加载成功")
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(
     model.parameters(),
-    lr=0.001
+    lr=0.0001
 )
 epochs = 1
 for epoch in range(epochs):
@@ -120,12 +120,13 @@ for epoch in range(epochs):
 
             optimizer.step()
 
-            total_loss += loss.item()
+            total_loss = loss.item()
+        print(
+            f"Epoch {epoch + 1}, "
+            f"Loss: {total_loss / len(loader):.4f}"
+        )
 
-    print(
-        f"Epoch {epoch + 1}, "
-        f"Loss: {total_loss / len(loader):.4f}"
-    )
+
 torch.save(
     model.state_dict(),
     "policy_network.pth"
