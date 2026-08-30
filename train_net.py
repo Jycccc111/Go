@@ -126,10 +126,11 @@ class Policy_network(nn.Module):
     # ======================================
 
     def fit(
-        self,
-        epochs,
-        files,
-        repo_id
+            self,
+            epochs,
+            files,
+            data_repo_id,
+            model_repo_id
     ):
         api = HfApi()
         criterion = nn.CrossEntropyLoss()
@@ -156,7 +157,7 @@ class Policy_network(nn.Module):
                 # ==================================
 
                 url = hf_hub_url(
-                    repo_id=repo_id,
+                    repo_id=data_repo_id,
                     filename=filename,
                     repo_type="dataset"
                 )
@@ -261,7 +262,7 @@ class Policy_network(nn.Module):
             api.upload_file(
                 path_or_fileobj=filename,
                 path_in_repo=filename,
-                repo_id=repo_id,
+                repo_id=model_repo_id,
                 repo_type="model"
             )
             print("已上传到 Hugging Face")
@@ -277,7 +278,7 @@ class Policy_network(nn.Module):
         api.upload_file(
             path_or_fileobj="policy_network.pth",
             path_in_repo="policy_network.pth",
-            repo_id=repo_id,
+            repo_id=model_repo_id,
             repo_type="model"
         )
         print(
