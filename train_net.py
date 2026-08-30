@@ -1,7 +1,7 @@
 import io
 import gc
 import requests
-
+from huggingface_hub import HfApi
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
@@ -61,7 +61,10 @@ class Policy_network(nn.Module):
     def __init__(self):
 
         super().__init__()
-
+        self.optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=0.001
+        )
         self.network = nn.Sequential(
 
             nn.Conv2d(
@@ -98,7 +101,21 @@ class Policy_network(nn.Module):
                 361
             )
         )
+    def load(self, filename):
+        checkpoint = torch.load(
+            filename,
+            map_location=device
+        )
 
+        self.network.load_state_dict(
+            checkpoint["model_state_dict"]
+        )
+
+        self.optimizer.load_state_dict(
+            checkpoint["optimizer_state_dict"]
+        )
+
+        return checkpoint["epoch"]
     def forward(self, x):
 
         return self.network(x)
@@ -114,13 +131,8 @@ class Policy_network(nn.Module):
         files,
         repo_id
     ):
-
+        api = HfApi()
         criterion = nn.CrossEntropyLoss()
-
-        optimizer = torch.optim.Adam(
-            self.parameters(),
-            lr=0.0001
-        )
 
         for epoch in range(epochs):
 
@@ -198,11 +210,11 @@ class Policy_network(nn.Module):
                         actions_batch
                     )
 
-                    optimizer.zero_grad()
+                    self.optimizer.zero_grad()
 
                     loss.backward()
 
-                    optimizer.step()
+                    self.optimizer.step()
 
                     total_loss += loss.item()
                     total_batches += 1
@@ -236,6 +248,23 @@ class Policy_network(nn.Module):
                 f"average loss = "
                 f"{average_loss:.4f}"
             )
+            checkpoint = {
+                "epoch": epoch + 1,
+                "model_state_dict": self.network.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "loss": average_loss
+            }
+
+            filename = f"checkpoint_epoch_{epoch + 1}.pth"
+
+            torch.save(checkpoint, filename)
+            api.upload_file(
+                path_or_fileobj=filename,
+                path_in_repo=filename,
+                repo_id=repo_id,
+                repo_type="model"
+            )
+            print("已上传到 Hugging Face")
 
         # ======================================
         # 保存模型
@@ -245,7 +274,12 @@ class Policy_network(nn.Module):
             self.state_dict(),
             "policy_network.pth"
         )
-
+        api.upload_file(
+            path_or_fileobj="policy_network.pth",
+            path_in_repo="policy_network.pth",
+            repo_id=repo_id,
+            repo_type="model"
+        )
         print(
             "\n模型已经保存为 "
             "policy_network.pth"
