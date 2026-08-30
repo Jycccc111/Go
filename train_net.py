@@ -130,9 +130,11 @@ class Policy_network(nn.Module):
 
 model = Policy_network().to(device)
 model.load_state_dict(
-    torch.load("policy_network.pth")
+    torch.load(
+        "policy_network.pth",
+        map_location=device
+    )
 )
-
 # 切换到推理模式
 model.eval()
 print("模型加载成功")
