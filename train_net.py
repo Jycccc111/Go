@@ -97,7 +97,7 @@ class Policy_network(nn.Module):
                 64 * 19 * 19,
                 361
             )
-        ]
+        )
 
     def forward(self, x):
 
