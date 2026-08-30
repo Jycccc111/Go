@@ -61,10 +61,7 @@ class Policy_network(nn.Module):
     def __init__(self):
 
         super().__init__()
-        self.optimizer = torch.optim.Adam(
-            self.parameters(),
-            lr=0.001
-        )
+
         self.network = nn.Sequential(
 
             nn.Conv2d(
@@ -100,6 +97,10 @@ class Policy_network(nn.Module):
                 64 * 19 * 19,
                 361
             )
+        )
+        self.optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=0.001
         )
     def load(self, filename):
         checkpoint = torch.load(
