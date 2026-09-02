@@ -229,7 +229,7 @@ class Policy_network(nn.Module):
 
                 loader = DataLoader(
                     dataset,
-                    batch_size=64,
+                    batch_size=512,
                     shuffle=True
                 )
 
