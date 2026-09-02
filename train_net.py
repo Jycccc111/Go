@@ -9,7 +9,53 @@ import numpy as np
 
 from huggingface_hub import hf_hub_url
 
+import torch.nn.functional as F
 
+
+# =========================
+# Residual Block
+# =========================
+
+class ResBlock(nn.Module):
+
+    def __init__(self, channels):
+        super().__init__()
+
+        self.conv1 = nn.Conv2d(
+            channels,
+            channels,
+            kernel_size=3,
+            padding=1
+        )
+
+        self.bn1 = nn.BatchNorm2d(channels)
+
+        self.conv2 = nn.Conv2d(
+            channels,
+            channels,
+            kernel_size=3,
+            padding=1
+        )
+
+        self.bn2 = nn.BatchNorm2d(channels)
+
+    def forward(self, x):
+
+        identity = x
+
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+
+        x = self.conv2(x)
+        x = self.bn2(x)
+
+        # Residual connection
+        x = x + identity
+
+        x = F.relu(x)
+
+        return x
 # ==========================================
 # Device
 # ==========================================
@@ -65,32 +111,24 @@ class Policy_network(nn.Module):
         self.network = nn.Sequential(
 
             nn.Conv2d(
-                in_channels=3,
+                in_channels=7,
                 out_channels=64,
                 kernel_size=3,
                 padding=1
             ),
 
+            nn.BatchNorm2d(64),
             nn.ReLU(),
 
-            nn.Conv2d(
-                in_channels=64,
-                out_channels=64,
-                kernel_size=3,
-                padding=1
-            ),
+            # ResNet
+            ResBlock(64),
+            ResBlock(64),
+            ResBlock(64),
+            ResBlock(64),
+            ResBlock(64),
+            ResBlock(64),
 
-            nn.ReLU(),
-
-            nn.Conv2d(
-                in_channels=64,
-                out_channels=64,
-                kernel_size=3,
-                padding=1
-            ),
-
-            nn.ReLU(),
-
+            # Policy head
             nn.Flatten(),
 
             nn.Linear(
