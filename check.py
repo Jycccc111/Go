@@ -1,6 +1,6 @@
 import numpy as np
 
-file = "dataset/chunk_00000.npz"
+file = "dataset/chunk_00197.npz"
 
 data = np.load(file)
 
