@@ -1,56 +1,59 @@
 import os
+import gc
 import numpy as np
+
+from huggingface_hub import (
+    HfApi,
+    hf_hub_download,
+    list_repo_files
+)
 
 from data_loader import SGFLoader
 
 
-def find_sgf_files(root):
+# ==========================================
+# Configuration
+# ==========================================
 
-    files = []
+DATA_REPO_ID = "Jycccc111/Go"
 
-    for path, dirs, filenames in os.walk(root):
-
-        for filename in filenames:
-
-            if filename.endswith(".sgf"):
-
-                files.append(
-                    os.path.join(path, filename)
-                )
-
-    return files
-
-
-# =========================
-# 配置
-# =========================
-
-ROOT = "/Users/jiangyuncong/Downloads/games"
-
-SAVE_DIR = "dataset"
+OUTPUT_REPO_ID = "Jycccc111/Go"
 
 CHUNK_SIZE = 100_000
 
-
-# =========================
-# 创建保存目录
-# =========================
+SAVE_DIR = "dataset"
 
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 
-# =========================
-# 找到所有 SGF
-# =========================
+# ==========================================
+# Get SGF files
+# ==========================================
 
-files = find_sgf_files(ROOT)
+files = list_repo_files(
+    repo_id=DATA_REPO_ID,
+    repo_type="dataset"
+)
 
-print("SGF数量:", len(files))
+sgf_files = [
+    filename
+    for filename in files
+    if filename.lower().endswith(".sgf")
+]
+
+print("SGF数量:", len(sgf_files))
 
 
-# =========================
-# 当前 chunk
-# =========================
+# ==========================================
+# Hugging Face API
+# ==========================================
+
+api = HfApi()
+
+
+# ==========================================
+# Buffer
+# ==========================================
 
 all_states = []
 all_moves = []
@@ -60,39 +63,78 @@ chunk_id = 0
 total_positions = 0
 
 
-# =========================
-# 开始读取
-# =========================
+# ==========================================
+# Process
+# ==========================================
 
-for i, filename in enumerate(files):
+for i, filename in enumerate(sgf_files):
 
-    loader = SGFLoader(filename)
+    print()
+    print(
+        f"[{i + 1}/{len(sgf_files)}]"
+        f" 正在读取: {filename}"
+    )
+
+    # ======================================
+    # Download SGF
+    # ======================================
 
     try:
+
+        local_file = hf_hub_download(
+            repo_id=DATA_REPO_ID,
+            filename=filename,
+            repo_type="dataset"
+        )
+
+    except Exception as e:
+
+        print("下载失败:", e)
+        continue
+
+
+    # ======================================
+    # Load SGF
+    # ======================================
+
+    try:
+
+        loader = SGFLoader(local_file)
+
         loader.load()
 
     except Exception as e:
 
-        print(
-            "跳过文件:",
-            filename,
-            "错误:",
-            e
-        )
-
+        print("跳过:", filename)
+        print("错误:", e)
         continue
 
 
+    # ======================================
+    # Add to buffer
+    # ======================================
+
     all_states.extend(loader.states)
-
     all_moves.extend(loader.actions)
-
     all_results.extend(loader.results)
 
 
-    # =========================
-    # 达到 chunk 大小
-    # =========================
+    print(
+        "当前 buffer:",
+        len(all_states)
+    )
+
+
+    # ======================================
+    # Release loader
+    # ======================================
+
+    del loader
+
+
+    # ======================================
+    # Create chunk
+    # ======================================
 
     if len(all_states) >= CHUNK_SIZE:
 
@@ -116,82 +158,99 @@ for i, filename in enumerate(files):
         assert len(states) == len(results)
 
 
+        chunk_filename = (
+            f"chunk_{chunk_id:05d}.npz"
+        )
+
+        local_chunk = os.path.join(
+            SAVE_DIR,
+            chunk_filename
+        )
+
+
+        # ==================================
+        # Save
+        # ==================================
+
         np.savez(
-            os.path.join(
-                SAVE_DIR,
-                f"chunk_{chunk_id:05d}.npz"
-            ),
+            local_chunk,
             states=states,
             moves=moves,
             results=results
         )
 
 
-        total_positions += len(states)
+        print(
+            "保存:",
+            chunk_filename
+        )
+
+        print(
+            "positions:",
+            len(states)
+        )
+
+
+        # ==================================
+        # Upload
+        # ==================================
+
+        api.upload_file(
+            path_or_fileobj=local_chunk,
+            path_in_repo=f"processed/{chunk_filename}",
+            repo_id=OUTPUT_REPO_ID,
+            repo_type="dataset"
+        )
 
 
         print(
-            f"保存 chunk {chunk_id}:",
-            len(states),
-            "positions",
-            "总计:",
-            total_positions
+            "已上传:",
+            chunk_filename
         )
 
+
+        # ==================================
+        # Statistics
+        # ==================================
+
+        total_positions += len(states)
 
         chunk_id += 1
 
 
-        # =========================
-        # 清空 RAM
-        # =========================
+        # ==================================
+        # Clear memory
+        # ==================================
 
         all_states.clear()
         all_moves.clear()
         all_results.clear()
 
 
-# =========================
-# 保存最后不足一个 chunk 的数据
-# =========================
-
-if all_states:
-
-    states = np.asarray(
-        all_states,
-        dtype=np.float32
-    )
-
-    moves = np.asarray(
-        all_moves,
-        dtype=np.int64
-    )
-
-    results = np.asarray(
-        all_results,
-        dtype=np.int8
-    )
+        del states
+        del moves
+        del results
 
 
-    assert len(states) == len(moves)
-    assert len(states) == len(results)
+        # ==================================
+        # Delete local file
+        # ==================================
+
+        os.remove(local_chunk)
 
 
-    np.savez(
-        os.path.join(
-            SAVE_DIR,
-            f"chunk_{chunk_id:05d}.npz"
-        ),
-        states=states,
-        moves=moves,
-        results=results
-    )
+        # ==================================
+        # Garbage collection
+        # ==================================
 
-
-    total_positions += len(states)
+        gc.collect()
 
 
 print()
-print("完成")
-print("总 positions:", total_positions)
-print("保存目录:", SAVE_DIR)
+print("==============================")
+print("处理完成")
+print(
+    "总 positions:",
+    total_positions
+)
+print("==============================")

@@ -1,5 +1,5 @@
 import numpy as np
-
+import copy
 
 
 
@@ -18,7 +18,7 @@ def adjacent(object1,object2):
     return False
 
 def update_clusters(position,clusters,color):
-    local_clusters = clusters.copy()
+    local_clusters = copy.deepcopy(clusters)
     cluster = []
     position.append(color)
     entity = position
@@ -61,7 +61,7 @@ def findair(board,position):
         return True
     return False
 
-def eat(board,clusters,color):
+def eat(board,clusters,color,last1,last2):
     eaten = False
     self_eaten = False
     error = False
@@ -84,19 +84,36 @@ def eat(board,clusters,color):
             if color == color1:
                 self_eaten = True
                 dead_index1 = i
+
             else:
                 eaten = True
                 dead_index2.append(i)
+                if color1 == -1:
+                    last1 = []
+                else:
+                    last2 = []
         i += 1
     if (not eaten) and self_eaten:
         error = True
         print("error1")
+    if not error and self_eaten:
+        if color1 == 1:
+            last1 = []
+            for x,y,z in clusters[dead_index1]:
+                last1.append([x,y])
+        else:
+            last2 = []
+            for x, y, z in clusters[dead_index1]:
+                last2.append([x, y])
     if eaten:
         for i in sorted(dead_index2, reverse=True):
             count = 0
             for x, y, color in clusters[i]:
                 board[x, y] = 0
-                #print(x,y,"iseated")
+                if color == 1:
+                    last1.append([x, y])
+                else:
+                    last2.append([x, y])
                 count += 1
             del clusters[i]
             if count == 1:
@@ -106,7 +123,7 @@ def eat(board,clusters,color):
                     lasteated2 = [x,y]
 
 
-    return error, clusters, board,lasteated1,lasteated2
+    return error, clusters, board,lasteated1,lasteated2,last1,last2
 
 class GoGame:
 
@@ -122,6 +139,10 @@ class GoGame:
 
         self.lasteated2=[]
 
+        self.lasteaten1 = []
+
+        self.lasteaten2 = []
+
     def add_stone(self, x, y, color):
 
         self.board[x, y] = color
@@ -132,9 +153,9 @@ class GoGame:
             color
         )
 
-    def move(self, x, y, color=None):
+    def move(self, x, y, color=None,loading = False):
 
-        temp_clusters = self.clusters.copy()
+        temp_clusters = copy.deepcopy(self.clusters)
 
         error1=False
         error2=False
@@ -163,30 +184,47 @@ class GoGame:
                     error2 = True
 
         if not(error2 or error3):
+            if loading:
+                temp_board = self.board.copy()
+                temp_board[x, y] = color
 
-            self.board[x,y]=color
+                temp_clusters = update_clusters(
+                    position,
+                    temp_clusters,
+                    color
+                )
+
+                error1, temp_clusters, temp_board, q, w, e, r = eat(
+                    temp_board,
+                    temp_clusters,
+                    color,
+                    self.lasteaten1,
+                    self.lasteaten2
+                )
+
+            else:
+                self.board[x,y]=color
 
 
-            temp_clusters=update_clusters(
-                position,
-                self.clusters,
-                color
-            )
+                temp_clusters=update_clusters(
+                    position,
+                    self.clusters,
+                    color
+                )
 
 
-            error1,temp_clusters,self.board,self.lasteated1,self.lasteated2=eat(
-                self.board,
-                temp_clusters,
-                color
-            )
-
-
+                error1,temp_clusters,self.board,self.lasteated1,self.lasteated2,self.lasteaten1,self.lasteaten2=eat(
+                    self.board,
+                    temp_clusters,
+                    color,
+                    self.lasteaten1,
+                    self.lasteaten2
+                )
         if error1 or error2:
 
             self.board[x,y]=0
 
-            return False
-
+            return False,self.lasteaten1,self.lasteaten2
 
         else:
 
@@ -196,4 +234,4 @@ class GoGame:
                 self.count+=1
 
 
-            return True
+            return True,self.lasteaten1,self.lasteaten2

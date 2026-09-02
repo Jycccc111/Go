@@ -15,17 +15,19 @@ class SGFLoader:
         self.moves = []
         self.komi = None
         self.handicap = None
+        self.lasteated1 = []
+        self.lasteated2 = []
         self.states = []
         self.actions = []
         self.results = []
 
-    def encode_board(self):
+    def encode_board(self,color,last_move,last1,last2):
 
         size = self.size
 
         x = np.zeros(
-            (3, size, size),
-            dtype=np.float32
+            (8, size, size),
+            dtype=np.uint8
         )
 
         for i in range(size):
@@ -38,7 +40,20 @@ class SGFLoader:
 
                 elif stone == -1:
                     x[1, i, j] = 1
-
+                available,a,b = self.game.move(i + 1,j + 1,color,True)
+                if available:
+                    x[7, i, j] = 1
+        if color == 1:
+            x[2, :, :] = 1
+        else:
+            x[3, :, :] = 1
+        i,j = last_move
+        if not(i == 20 and j == 20):
+            x[4, i, j] = 1
+        for i,j in last1:
+            x[5, i-1, j-1] = 1
+        for i,j in last2:
+            x[6, i-1, j-1] = 1
         return x
     def show_board(self, board):
 
@@ -138,7 +153,7 @@ class SGFLoader:
             if "HA" in root.properties()
             else None
         )
-
+        last_move = 20, 20
         for node in sgf_game.get_main_sequence():
             if "AB" in node.properties():
 
@@ -198,15 +213,15 @@ class SGFLoader:
             x, y = move
 
             stone = 1 if color == "b" else -1
-            state = self.encode_board()
-
+            state = self.encode_board(stone,last_move,self.lasteated1,self.lasteated2)
+            last_move = [move[0],move[1]]
             self.states.append(state)
 
             action = y * self.size + x
 
             self.actions.append(action)
 
-            ok=self.game.move(
+            ok,self.lasteated1,self.lasteated2=self.game.move(
                 x + 1,
                 y + 1,
                 stone
