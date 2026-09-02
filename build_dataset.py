@@ -15,15 +15,25 @@ from data_loader import SGFLoader
 # Configuration
 # ==========================================
 
-DATA_REPO_ID = "Jycccc111/Go"
+# 原始 SGF 数据
+DATA_REPO_ID = "Jycccc111/Go_sfgs"
 
+# 处理后的训练数据
 OUTPUT_REPO_ID = "Jycccc111/Go"
 
+# 每 100,000 个 position 保存一次
 CHUNK_SIZE = 100_000
 
 SAVE_DIR = "dataset"
 
 os.makedirs(SAVE_DIR, exist_ok=True)
+
+
+# ==========================================
+# Hugging Face API
+# ==========================================
+
+api = HfApi()
 
 
 # ==========================================
@@ -45,13 +55,6 @@ print("SGF数量:", len(sgf_files))
 
 
 # ==========================================
-# Hugging Face API
-# ==========================================
-
-api = HfApi()
-
-
-# ==========================================
 # Buffer
 # ==========================================
 
@@ -64,12 +67,13 @@ total_positions = 0
 
 
 # ==========================================
-# Process
+# Process SGF
 # ==========================================
 
 for i, filename in enumerate(sgf_files):
 
     print()
+    print("=" * 60)
     print(
         f"[{i + 1}/{len(sgf_files)}]"
         f" 正在读取: {filename}"
@@ -107,6 +111,10 @@ for i, filename in enumerate(sgf_files):
 
         print("跳过:", filename)
         print("错误:", e)
+
+        del loader
+        gc.collect()
+
         continue
 
 
@@ -131,12 +139,22 @@ for i, filename in enumerate(sgf_files):
 
     del loader
 
+    gc.collect()
+
 
     # ======================================
     # Create chunk
     # ======================================
 
     if len(all_states) >= CHUNK_SIZE:
+
+        print()
+        print("正在创建 chunk...")
+
+
+        # ==================================
+        # Convert numpy
+        # ==================================
 
         states = np.asarray(
             all_states,
@@ -154,9 +172,17 @@ for i, filename in enumerate(sgf_files):
         )
 
 
+        # ==================================
+        # Check
+        # ==================================
+
         assert len(states) == len(moves)
         assert len(states) == len(results)
 
+
+        # ==================================
+        # Filename
+        # ==================================
 
         chunk_filename = (
             f"chunk_{chunk_id:05d}.npz"
@@ -195,18 +221,27 @@ for i, filename in enumerate(sgf_files):
         # Upload
         # ==================================
 
-        api.upload_file(
-            path_or_fileobj=local_chunk,
-            path_in_repo=f"processed/{chunk_filename}",
-            repo_id=OUTPUT_REPO_ID,
-            repo_type="dataset"
-        )
+        try:
 
+            api.upload_file(
+                path_or_fileobj=local_chunk,
+                path_in_repo=f"processed/{chunk_filename}",
+                repo_id=OUTPUT_REPO_ID,
+                repo_type="dataset"
+            )
 
-        print(
-            "已上传:",
-            chunk_filename
-        )
+            print(
+                "已上传:",
+                chunk_filename
+            )
+
+        except Exception as e:
+
+            print("上传失败:", e)
+
+            # 不删除本地文件
+            # 这样可以手动重新上传
+            break
 
 
         # ==================================
@@ -233,7 +268,7 @@ for i, filename in enumerate(sgf_files):
 
 
         # ==================================
-        # Delete local file
+        # Delete local chunk
         # ==================================
 
         os.remove(local_chunk)
@@ -246,11 +281,89 @@ for i, filename in enumerate(sgf_files):
         gc.collect()
 
 
+# ==========================================
+# Remaining data
+# ==========================================
+
+if len(all_states) > 0:
+
+    print()
+    print("处理最后一个 chunk...")
+
+    states = np.asarray(
+        all_states,
+        dtype=np.uint8
+    )
+
+    moves = np.asarray(
+        all_moves,
+        dtype=np.int8
+    )
+
+    results = np.asarray(
+        all_results,
+        dtype=np.int8
+    )
+
+    assert len(states) == len(moves)
+    assert len(states) == len(results)
+
+    chunk_filename = (
+        f"chunk_{chunk_id:05d}.npz"
+    )
+
+    local_chunk = os.path.join(
+        SAVE_DIR,
+        chunk_filename
+    )
+
+    np.savez(
+        local_chunk,
+        states=states,
+        moves=moves,
+        results=results
+    )
+
+    print(
+        "保存:",
+        chunk_filename
+    )
+
+    print(
+        "positions:",
+        len(states)
+    )
+
+    api.upload_file(
+        path_or_fileobj=local_chunk,
+        path_in_repo=f"processed/{chunk_filename}",
+        repo_id=OUTPUT_REPO_ID,
+        repo_type="dataset"
+    )
+
+    print(
+        "已上传:",
+        chunk_filename
+    )
+
+    total_positions += len(states)
+
+    os.remove(local_chunk)
+
+    del states
+    del moves
+    del results
+
+    gc.collect()
+
+
+# ==========================================
+# Done
+# ==========================================
+
 print()
-print("==============================")
+print("=" * 60)
 print("处理完成")
-print(
-    "总 positions:",
-    total_positions
-)
-print("==============================")
+print("总 positions:", total_positions)
+print("总 chunks:", chunk_id + 1)
+print("=" * 60)
