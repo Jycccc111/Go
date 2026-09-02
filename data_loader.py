@@ -54,6 +54,7 @@ class SGFLoader:
             x[5, i-1, j-1] = 1
         for i,j in last2:
             x[6, i-1, j-1] = 1
+        print(1)
         return x
     def show_board(self, board):
 
