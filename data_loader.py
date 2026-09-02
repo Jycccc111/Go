@@ -22,11 +22,10 @@ class SGFLoader:
         self.results = []
 
     def encode_board(self,color,last_move,last1,last2):
-
         size = self.size
 
         x = np.zeros(
-            (8, size, size),
+            (7, size, size),
             dtype=np.uint8
         )
 
@@ -40,9 +39,9 @@ class SGFLoader:
 
                 elif stone == -1:
                     x[1, i, j] = 1
-                available,a,b = self.game.move(i + 1,j + 1,color,True)
-                if available:
-                    x[7, i, j] = 1
+                #available,a,b = self.game.move(i + 1,j + 1,color,True)
+                #if available:
+                    #x[7, i, j] = 1
         if color == 1:
             x[2, :, :] = 1
         else:
@@ -54,7 +53,6 @@ class SGFLoader:
             x[5, i-1, j-1] = 1
         for i,j in last2:
             x[6, i-1, j-1] = 1
-        print(1)
         return x
     def show_board(self, board):
 
