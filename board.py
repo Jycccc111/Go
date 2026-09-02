@@ -18,7 +18,7 @@ def adjacent(object1,object2):
     return False
 
 def update_clusters(position,clusters,color):
-    local_clusters = copy.deepcopy(clusters)
+    local_clusters = clusters.copy()
     cluster = []
     position.append(color)
     entity = position
@@ -155,7 +155,7 @@ class GoGame:
 
     def move(self, x, y, color=None,loading = False):
 
-        temp_clusters = copy.deepcopy(self.clusters)
+        temp_clusters = self.clusters.copy()
 
         error1=False
         error2=False
