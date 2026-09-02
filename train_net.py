@@ -10,7 +10,7 @@ import numpy as np
 from huggingface_hub import hf_hub_url
 
 import torch.nn.functional as F
-
+import random
 
 # =========================
 # Residual Block
@@ -183,8 +183,9 @@ class Policy_network(nn.Module):
             print(
                 f"========== Epoch {epoch + 1} =========="
             )
-
-            for i, filename in enumerate(files):
+            epoch_files = files.copy()
+            random.shuffle(epoch_files)
+            for i, filename in enumerate(epoch_files):
 
                 print(
                     f"[{i + 1}/{len(files)}] "
