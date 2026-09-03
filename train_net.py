@@ -251,7 +251,6 @@ class Policy_network(nn.Module):
                 # 释放当前 chunk
                 # ==================================
 
-                del response
                 del data
                 del states
                 del actions
