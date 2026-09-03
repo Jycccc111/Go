@@ -138,7 +138,7 @@ class Policy_network(nn.Module):
         )
         self.optimizer = torch.optim.Adam(
             self.parameters(),
-            lr=0.001
+            lr=0.01
         )
     def load(self, filename):
         checkpoint = torch.load(
