@@ -143,6 +143,8 @@ class GoGame:
 
         self.lasteaten2 = []
 
+        self.laststep = 22,22
+
     def add_stone(self, x, y, color):
 
         self.board[x, y] = color
@@ -232,6 +234,6 @@ class GoGame:
 
             if not error3:
                 self.count+=1
-
+            self.lastmove = x-1,y-1
 
             return True,self.lasteaten1,self.lasteaten2

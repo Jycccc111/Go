@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 import torch.nn.functional as F
-
+from huggingface_hub import hf_hub_download
 class ResBlock(nn.Module):
 
     def __init__(self, channels):
@@ -83,21 +83,35 @@ class Policy_network(nn.Module):
 
 
 device = torch.device(
-    "mps"
-    if torch.backends.mps.is_available()
+    "cuda" if torch.cuda.is_available()
+    else "mps" if torch.backends.mps.is_available()
     else "cpu"
 )
 
-
 model = Policy_network().to(device)
 
-model.load_state_dict(
-    torch.load(
-        "policy_network.pth",
-        map_location=device
-    )
+# 从 Hugging Face Model Hub 读取
+model_path = hf_hub_download(
+    repo_id="Jycccc111/Go-Policy",
+    filename="checkpoint_epoch_9.pth"
 )
+
+print("Loading:", model_path)
+
+checkpoint = torch.load(
+    model_path,
+    map_location=device
+)
+
+# 兼容两种保存方式
+if "model_state_dict" in checkpoint:
+    model.network.load_state_dict(checkpoint["model_state_dict"])
+else:
+    model.load_state_dict(checkpoint)
+
 model.eval()
+
+print("Policy Network loaded successfully!")
 
 
 

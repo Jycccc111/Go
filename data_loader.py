@@ -152,7 +152,7 @@ class SGFLoader:
             if "HA" in root.properties()
             else None
         )
-        last_move = 20, 20
+        last_move = self.game.lastmove
         for node in sgf_game.get_main_sequence():
             if "AB" in node.properties():
 

@@ -169,41 +169,93 @@ class Policy_network(nn.Module):
             epochs,
             files,
             data_repo_id,
-            model_repo_id
+            model_repo_id,
+            val_ratio=0.2,
+            batch_size=4096
     ):
+
         api = HfApi()
+
         criterion = nn.CrossEntropyLoss()
 
-        for epoch in range(epochs):
+        # ==========================================
+        # 划分 Train / Validation
+        # ==========================================
 
-            total_loss = 0
-            total_batches = 0
+        files = files.copy()
+        random.shuffle(files)
+
+        split = int(len(files) * (1 - val_ratio))
+
+        train_files = files[:split]
+        val_files = files[split:]
+
+        print(
+            f"Train chunks: {len(train_files)}"
+        )
+
+        print(
+            f"Validation chunks: {len(val_files)}"
+        )
+
+        # ==========================================
+        # Learning Rate Scheduler
+        # ==========================================
+
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer,
+            mode="min",
+            factor=0.5,
+            patience=2,
+            min_lr=1e-6
+        )
+
+        # ==========================================
+        # Early Stopping
+        # ==========================================
+
+        best_val_loss = float("inf")
+
+        patience = 5
+        bad_epochs = 0
+
+        # ==========================================
+        # Epoch
+        # ==========================================
+
+        for epoch in range(epochs):
 
             print()
             print(
                 f"========== Epoch {epoch + 1} =========="
             )
-            epoch_files = files.copy()
-            random.shuffle(epoch_files)
-            for i, filename in enumerate(epoch_files):
+
+            # ======================================
+            # TRAIN
+            # ======================================
+
+            self.train()
+
+            random.shuffle(train_files)
+
+            train_loss = 0
+            train_samples = 0
+
+            for i, filename in enumerate(train_files):
 
                 print(
-                    f"[{i + 1}/{len(files)}] "
+                    f"[Train {i + 1}/{len(train_files)}] "
                     f"正在读取: {filename}"
                 )
 
-                # ==================================
-                # 从 Hugging Face 获取文件
-                # ==================================
+                # -------------------------------
+                # Load
+                # -------------------------------
 
                 data = np.load(filename)
 
                 states = data["states"]
                 actions = data["moves"]
-
-                # ==================================
-                # 创建 Dataset
-                # ==================================
 
                 dataset = GoDataset(
                     states,
@@ -212,20 +264,19 @@ class Policy_network(nn.Module):
 
                 loader = DataLoader(
                     dataset,
-                    batch_size=4096,
+                    batch_size=batch_size,
                     shuffle=True
                 )
 
-                # ==================================
+                # -------------------------------
                 # Training
-                # ==================================
-
-                self.train()
+                # -------------------------------
 
                 for states_batch, actions_batch in loader:
-
                     states_batch = states_batch.to(device)
                     actions_batch = actions_batch.to(device)
+
+                    self.optimizer.zero_grad()
 
                     output = self(states_batch)
 
@@ -234,22 +285,26 @@ class Policy_network(nn.Module):
                         actions_batch
                     )
 
-                    self.optimizer.zero_grad()
-
                     loss.backward()
 
                     self.optimizer.step()
 
-                    total_loss += loss.item()
-                    total_batches += 1
+                    batch_size_actual = states_batch.size(0)
+
+                    train_loss += (
+                            loss.item()
+                            * batch_size_actual
+                    )
+
+                    train_samples += batch_size_actual
 
                 print(
                     f"Chunk loss: {loss.item():.4f}"
                 )
 
-                # ==================================
-                # 释放当前 chunk
-                # ==================================
+                # -------------------------------
+                # Free memory
+                # -------------------------------
 
                 del data
                 del states
@@ -262,48 +317,185 @@ class Policy_network(nn.Module):
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-            average_loss = (
-                total_loss / total_batches
+            # ======================================
+            # Average Train Loss
+            # ======================================
+
+            train_loss /= train_samples
+
+            # ======================================
+            # VALIDATION
+            # ======================================
+
+            self.eval()
+
+            val_loss = 0
+            val_samples = 0
+
+            with torch.no_grad():
+
+                for i, filename in enumerate(val_files):
+
+                    print(
+                        f"[Val {i + 1}/{len(val_files)}] "
+                        f"正在读取: {filename}"
+                    )
+
+                    data = np.load(filename)
+
+                    states = data["states"]
+                    actions = data["moves"]
+
+                    dataset = GoDataset(
+                        states,
+                        actions
+                    )
+
+                    loader = DataLoader(
+                        dataset,
+                        batch_size=batch_size,
+                        shuffle=False
+                    )
+
+                    for states_batch, actions_batch in loader:
+                        states_batch = states_batch.to(device)
+                        actions_batch = actions_batch.to(device)
+
+                        output = self(states_batch)
+
+                        loss = criterion(
+                            output,
+                            actions_batch
+                        )
+
+                        batch_size_actual = states_batch.size(0)
+
+                        val_loss += (
+                                loss.item()
+                                * batch_size_actual
+                        )
+
+                        val_samples += batch_size_actual
+
+                    # -------------------------------
+                    # Free memory
+                    # -------------------------------
+
+                    del data
+                    del states
+                    del actions
+                    del dataset
+                    del loader
+
+                    gc.collect()
+
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+
+            # ======================================
+            # Average Validation Loss
+            # ======================================
+
+            val_loss /= val_samples
+
+            # ======================================
+            # Learning Rate
+            # ======================================
+
+            scheduler.step(val_loss)
+
+            current_lr = self.optimizer.param_groups[0]["lr"]
+
+            print()
+            print(
+                f"Epoch {epoch + 1}"
             )
 
             print(
-                f"\nEpoch {epoch + 1} "
-                f"average loss = "
-                f"{average_loss:.4f}"
+                f"Train Loss: {train_loss:.4f}"
             )
-            checkpoint = {
-                "epoch": epoch + 1,
-                "model_state_dict": self.network.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "loss": average_loss
-            }
 
-            filename = f"checkpoint_epoch_{epoch + 1}.pth"
-
-            torch.save(checkpoint, filename)
-            api.upload_file(
-                path_or_fileobj=filename,
-                path_in_repo=filename,
-                repo_id=model_repo_id,
-                repo_type="model"
+            print(
+                f"Val Loss:   {val_loss:.4f}"
             )
-            print("已上传到 Hugging Face")
 
-        # ======================================
-        # 保存模型
-        # ======================================
+            print(
+                f"Learning Rate: {current_lr:.8f}"
+            )
 
-        torch.save(
-            self.state_dict(),
-            "policy_network.pth"
-        )
-        api.upload_file(
-            path_or_fileobj="policy_network.pth",
-            path_in_repo="policy_network.pth",
-            repo_id=model_repo_id,
-            repo_type="model"
-        )
+            # ======================================
+            # Save Best Model
+            # ======================================
+
+            if val_loss < best_val_loss:
+
+                best_val_loss = val_loss
+                bad_epochs = 0
+
+                checkpoint = {
+
+                    "epoch": epoch + 1,
+
+                    "model_state_dict":
+                        self.network.state_dict(),
+
+                    "optimizer_state_dict":
+                        self.optimizer.state_dict(),
+
+                    "best_val_loss":
+                        best_val_loss,
+
+                    "train_loss":
+                        train_loss,
+
+                    "val_loss":
+                        val_loss,
+
+                    "learning_rate":
+                        current_lr
+                }
+
+                filename_best = "best_policy_network.pth"
+
+                torch.save(
+                    checkpoint,
+                    filename_best
+                )
+
+                api.upload_file(
+                    path_or_fileobj=filename_best,
+                    path_in_repo=filename_best,
+                    repo_id=model_repo_id,
+                    repo_type="model"
+                )
+
+                print(
+                    "★ 保存新的最佳模型"
+                )
+
+            else:
+
+                bad_epochs += 1
+
+                print(
+                    f"Validation 没有改善 "
+                    f"({bad_epochs}/{patience})"
+                )
+
+            # ======================================
+            # Early Stopping
+            # ======================================
+
+            if bad_epochs >= patience:
+                print()
+                print(
+                    "Early stopping!"
+                )
+
+                break
+
+        print()
         print(
-            "\n模型已经保存为 "
-            "policy_network.pth"
+            f"Best validation loss = "
+            f"{best_val_loss:.4f}"
         )

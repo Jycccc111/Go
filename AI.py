@@ -3,27 +3,43 @@ import torch
 from Policy_model import model,device
 import copy
 from board import GoGame
-def encode_board(board):
 
-    state = np.zeros(
-        (3, 19, 19),
-        dtype=np.float32
+
+def encode_board(game, color, last_move, last1, last2):
+    size= 19
+
+    x = np.zeros(
+        (7, size, size),
+        dtype=np.uint8
     )
 
-    for i in range(19):
-        for j in range(19):
+    for i in range(size):
+        for j in range(size):
 
-            if board[i + 1, j + 1] == 1:
-                state[0, i, j] = 1
+            stone = game.board[i + 1][j + 1]
 
-            elif board[i + 1, j + 1] == -1:
-                state[1, i, j] = 1
+            if stone == 1:
+                x[0, i, j] = 1
 
-    return state
-
+            elif stone == -1:
+                x[1, i, j] = 1
+            # available,a,b = self.game.move(i + 1,j + 1,color,True)
+            # if available:
+            # x[7, i, j] = 1
+    if color % 2 == 1:
+        x[2, :, :] = 1
+    else:
+        x[3, :, :] = 1
+    i, j = last_move
+    if not (i >= 20 and j >= 20):
+        x[4, i, j] = 1
+    for i, j in last1:
+        x[5, i - 1, j - 1] = 1
+    for i, j in last2:
+        x[6, i - 1, j - 1] = 1
+    return x
 def predict_move(game):
-    board = game.board
-    state = encode_board(board)
+    state = encode_board(game,game.count,game.lastmove,game.lasteaten1,game.lasteaten2)
     state = torch.tensor(
         state,
         dtype = torch.float32
@@ -41,7 +57,7 @@ def predict_move(game):
         for y in range(19):
 
             # 空位置才考虑
-            if board[x + 1][y + 1] == 0:
+            if game.board[x + 1][y + 1] == 0:
                 index = x * 19 + y
 
                 candidates.append(
