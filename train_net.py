@@ -196,24 +196,7 @@ class Policy_network(nn.Module):
                 # 从 Hugging Face 获取文件
                 # ==================================
 
-                url = hf_hub_url(
-                    repo_id=data_repo_id,
-                    filename=filename,
-                    repo_type="dataset"
-                )
-
-                response = requests.get(url)
-
-                response.raise_for_status()
-
-                # ==================================
-                # 直接从内存读取 npz
-                # 不保存到本地
-                # ==================================
-
-                data = np.load(
-                    io.BytesIO(response.content)
-                )
+                data = np.load(filename)
 
                 states = data["states"]
                 actions = data["moves"]
