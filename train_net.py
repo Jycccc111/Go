@@ -127,18 +127,26 @@ class Policy_network(nn.Module):
             ResBlock(64),
             ResBlock(64),
             ResBlock(64),
+            ResBlock(64),
+            ResBlock(64),
+            nn.Conv2d(
+                64,
+                2,
+                kernel_size=1
+            ),
+            nn.BatchNorm2d(2),
+            nn.ReLU(),
 
-            # Policy head
             nn.Flatten(),
 
             nn.Linear(
-                64 * 19 * 19,
+                2 * 19 * 19,
                 361
             )
         )
         self.optimizer = torch.optim.Adam(
             self.parameters(),
-            lr=0.01
+            lr=0.001
         )
     def load(self, filename):
         checkpoint = torch.load(
@@ -424,38 +432,85 @@ class Policy_network(nn.Module):
             )
 
             # ======================================
-            # Save Best Model
+            # Save Best Model + Last Model
             # ======================================
 
-            if val_loss < best_val_loss:
+            # --------------------------------------
+            # 判断是否是最佳模型
+            # --------------------------------------
+
+            is_best = val_loss < best_val_loss
+
+            if is_best:
 
                 best_val_loss = val_loss
                 bad_epochs = 0
 
-                checkpoint = {
+            else:
 
-                    "epoch": epoch + 1,
+                bad_epochs += 1
 
-                    "model_state_dict":
-                        self.network.state_dict(),
+                print(
+                    f"Validation 没有改善 "
+                    f"({bad_epochs}/{patience})"
+                )
 
-                    "optimizer_state_dict":
-                        self.optimizer.state_dict(),
+            # ======================================
+            # 创建当前 Epoch checkpoint
+            # ======================================
 
-                    "best_val_loss":
-                        best_val_loss,
+            checkpoint = {
 
-                    "train_loss":
-                        train_loss,
+                "epoch": epoch + 1,
 
-                    "val_loss":
-                        val_loss,
+                "model_state_dict":
+                    self.network.state_dict(),
 
-                    "learning_rate":
-                        current_lr
-                }
+                "optimizer_state_dict":
+                    self.optimizer.state_dict(),
 
-                filename_best = "best_policy_network.pth"
+                "best_val_loss":
+                    best_val_loss,
+
+                "train_loss":
+                    train_loss,
+
+                "val_loss":
+                    val_loss,
+
+                "learning_rate":
+                    current_lr
+            }
+
+            # ======================================
+            # 保存最新模型
+            # 每个 Epoch 都保存
+            # ======================================
+
+            filename_last = "last_policy_network.pth"
+
+            torch.save(
+                checkpoint,
+                filename_last
+            )
+
+            api.upload_file(
+                path_or_fileobj=filename_last,
+                path_in_repo=filename_last,
+                repo_id=model_repo_id,
+                repo_type="model"
+            )
+
+            print(
+                "✓ 已保存最新模型"
+            )
+
+            # ======================================
+            # 如果是最佳模型
+            # ======================================
+
+            if is_best:
+                filename_best = "Test_best_policy_network.pth"
 
                 torch.save(
                     checkpoint,
@@ -473,15 +528,6 @@ class Policy_network(nn.Module):
                     "★ 保存新的最佳模型"
                 )
 
-            else:
-
-                bad_epochs += 1
-
-                print(
-                    f"Validation 没有改善 "
-                    f"({bad_epochs}/{patience})"
-                )
-
             # ======================================
             # Early Stopping
             # ======================================
@@ -493,9 +539,3 @@ class Policy_network(nn.Module):
                 )
 
                 break
-
-        print()
-        print(
-            f"Best validation loss = "
-            f"{best_val_loss:.4f}"
-        )

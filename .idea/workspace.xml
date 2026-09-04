@@ -29,6 +29,8 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "DefaultHtmlFileTemplate": "HTML File",
+    "Python.AI.executor": "Run",
+    "Python.Policy_model.executor": "Run",
     "Python.app.executor": "Run",
     "Python.app_view.executor": "Run",
     "Python.board.executor": "Run",

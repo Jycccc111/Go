@@ -44,7 +44,9 @@ class ResBlock(nn.Module):
 
         return x
 class Policy_network(nn.Module):
+
     def __init__(self):
+
         super().__init__()
 
         self.network = nn.Sequential(
@@ -66,18 +68,23 @@ class Policy_network(nn.Module):
             ResBlock(64),
             ResBlock(64),
             ResBlock(64),
+            ResBlock(64),
+            ResBlock(64),
+            nn.Conv2d(
+                64,
+                2,
+                kernel_size=1
+            ),
+            nn.BatchNorm2d(2),
+            nn.ReLU(),
 
-            # Policy head
             nn.Flatten(),
 
             nn.Linear(
-                64 * 19 * 19,
+                2 * 19 * 19,
                 361
             )
         )
-
-
-
     def forward(self, x):
         return self.network(x)
 
@@ -93,7 +100,7 @@ model = Policy_network().to(device)
 # 从 Hugging Face Model Hub 读取
 model_path = hf_hub_download(
     repo_id="Jycccc111/Go-Policy",
-    filename="checkpoint_epoch_9.pth"
+    filename="best_policy_network.pth"
 )
 
 print("Loading:", model_path)
