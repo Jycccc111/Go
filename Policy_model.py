@@ -52,7 +52,7 @@ class Policy_network(nn.Module):
         self.network = nn.Sequential(
 
             nn.Conv2d(
-                in_channels=7,
+                in_channels=23,
                 out_channels=64,
                 kernel_size=3,
                 padding=1
@@ -100,7 +100,7 @@ model = Policy_network().to(device)
 # 从 Hugging Face Model Hub 读取
 model_path = hf_hub_download(
     repo_id="Jycccc111/Go-Policy",
-    filename="best_policy_network.pth"
+    filename="Test_best_policy_network.pth"
 )
 
 print("Loading:", model_path)

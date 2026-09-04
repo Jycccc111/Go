@@ -6,11 +6,12 @@ from board import GoGame
 
 
 def encode_board(game, color, last_move, last1, last2):
-    size= 19
+    len_layer = 8
+    size = game.size
 
     x = np.zeros(
-        (7, size, size),
-        dtype=np.uint8
+        (23, size, size),
+        dtype=np.int8
     )
 
     for i in range(size):
@@ -23,10 +24,12 @@ def encode_board(game, color, last_move, last1, last2):
 
             elif stone == -1:
                 x[1, i, j] = 1
-            # available,a,b = self.game.move(i + 1,j + 1,color,True)
+            # available,count = self.game.trymove(i + 1,j + 1,color)
+            # for a in range(len_layer):
+            # x[8 + a , i , j ] = count
             # if available:
             # x[7, i, j] = 1
-    if color % 2 == 1:
+    if color == 1:
         x[2, :, :] = 1
     else:
         x[3, :, :] = 1
@@ -37,6 +40,11 @@ def encode_board(game, color, last_move, last1, last2):
         x[5, i - 1, j - 1] = 1
     for i, j in last2:
         x[6, i - 1, j - 1] = 1
+    temp = game.getinfo()
+    for a in range(len_layer):
+        x[7 + a, :, :] = temp
+    for a in range(len_layer):
+        x[15 + a, :, :] =game.history
     return x
 def predict_move(game):
     state = encode_board(game,game.count,game.lastmove,game.lasteaten1,game.lasteaten2)

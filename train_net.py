@@ -111,7 +111,7 @@ class Policy_network(nn.Module):
         self.network = nn.Sequential(
 
             nn.Conv2d(
-                in_channels=7,
+                in_channels=23,
                 out_channels=64,
                 kernel_size=3,
                 padding=1
